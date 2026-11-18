@@ -24,6 +24,12 @@ migrations/                  # old -> new CID mappings of executed migrations
 | network | contract | content store |
 |---|---|---|
 | tezos:mainnet | `KT1M3JKHiEzo8iLve8AWtRVHd1vW2jiCjXd1` | `KT1BEeVi6T44jiWPNsnG37ts96Sr5XGAk9rG` |
+| Tezos X / Etherlink mainnet (Michelson, `NetXohUVN5QWR4f`) | `KT1JYZ2o6keUiTChNKUQnWDcMkjzES3djjRY` | `KT1K2ZoHEoTCfbq8BqNE8qrZpANFqRE7YdVt` |
+
+Tezos X Michelson RPC: `https://michelson.etherlink.mainnet.octez.io`, indexer
+`https://api.etherlink.tzkt.io`. Storage costs 1 mutez/byte there (L1: 250).
+Note: octez-client may fail with `live_blocks` not found while waiting for
+inclusion; the operation is still injected, check the indexer.
 
 Originals were fetched from Tezos mainnet via tzkt (Micheline JSON) and
 converted with `octez-client convert script`.
@@ -79,11 +85,18 @@ already present on the new contract and prints a plan:
 
 ```
 npm run migrate -- <old_contract> <new_contract> <old_cid>... > plan.json
-jq .batch plan.json > batch.json
-octez-client multiple transfers from <you> using "$(cat batch.json)" --burn-cap 2
+jq '.batches[0]' plan.json > batch0.json   # repeat for every batch, in order
+octez-client multiple transfers from <you> using "$(cat batch0.json)" --burn-cap 2
 ```
 
-Chunks are never re-uploaded: the new contract must point at the same content
-store. Inode storage is roughly 130 B per file and 110–180 B per small
-directory. See `migrations/2026-11-18-mainnet.json` for the migration of
-`KT1BFSXud4o9NLqauoxiB7oUHxS1wfaf98Gu` (31 inodes, ~1.1 ꜩ total).
+When the new contract uses the same content store, chunks are not
+re-uploaded. To migrate to another chain (e.g. Tezos X), set `CHUNKS=1` to copy
+chunk contents from the old content store and `TZKT_NEW` to the indexer of the
+new chain:
+
+```
+TZKT_NEW=https://api.etherlink.tzkt.io/v1 CHUNKS=1 npm run migrate -- ...
+``` Inode storage is roughly 130 B per file and 110–180 B per small
+directory. See `migrations/` for the 2026-11-18 migrations of
+`KT1BFSXud4o9NLqauoxiB7oUHxS1wfaf98Gu` (31 inodes) to L1 (~1.1 ꜩ) and to
+Tezos X (~0.19 ꜩ incl. originations, chunks and fees). Both yield identical CIDs.
