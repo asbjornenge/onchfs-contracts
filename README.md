@@ -15,7 +15,15 @@ tezos/
     content_store.tz         # as deployed: KT1BEeVi6T44jiWPNsnG37ts96Sr5XGAk9rG
                              #   (identical to fxhash KT1JySSNRfQeRzrkZJypyoHDBRDaTbtTYAq1)
 test/                        # node:test suite, runs octez-client mockup in docker
+scripts/migrate.js           # plan a migration of inodes from an old files contract
+migrations/                  # old -> new CID mappings of executed migrations
 ```
+
+## Deployments
+
+| network | contract | content store |
+|---|---|---|
+| tezos:mainnet | `KT1M3JKHiEzo8iLve8AWtRVHd1vW2jiCjXd1` | `KT1BEeVi6T44jiWPNsnG37ts96Sr5XGAk9rG` |
 
 Originals were fetched from Tezos mainnet via tzkt (Micheline JSON) and
 converted with `octez-client convert script`.
@@ -43,7 +51,7 @@ must use the same chunk size (onchfs-js default: 16384). Use
 Requires docker (image `tezos/tezos:octez-v23.2`, override with `OCTEZ_IMAGE`).
 
 ```
-cd test && npm install && npm test
+npm install && npm test
 ```
 
 The tests check that:
@@ -53,10 +61,29 @@ The tests check that:
 - the read views still return the original content
 - unknown chunk pointers are rejected and `create_file` is idempotent
 
-## Deploy (not done)
+## Deploy
 
 ```
 octez-client originate contract onchfs_files transferring 0 from <you> \
   running tezos/onchfs_files.tz \
-  --init 'Pair "KT1BEeVi6T44jiWPNsnG37ts96Sr5XGAk9rG" {}' --burn-cap 2
+  --init 'Pair "<content_store>" {}' --burn-cap 1
 ```
+
+Costs about 0.64 ꜩ on mainnet (2300 bytes of storage).
+
+## Migrating from an old contract
+
+`scripts/migrate.js` reads inodes from an old (consistent-CID) contract via
+tzkt, recomputes their CIDs bottom-up with the cheap formula, skips anything
+already present on the new contract and prints a plan:
+
+```
+npm run migrate -- <old_contract> <new_contract> <old_cid>... > plan.json
+jq .batch plan.json > batch.json
+octez-client multiple transfers from <you> using "$(cat batch.json)" --burn-cap 2
+```
+
+Chunks are never re-uploaded: the new contract must point at the same content
+store. Inode storage is roughly 130 B per file and 110–180 B per small
+directory. See `migrations/2026-11-18-mainnet.json` for the migration of
+`KT1BFSXud4o9NLqauoxiB7oUHxS1wfaf98Gu` (31 inodes, ~1.1 ꜩ total).

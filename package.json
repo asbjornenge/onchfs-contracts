@@ -1,9 +1,10 @@
 {
-  "name": "onchfs-contracts-tests",
+  "name": "onchfs-contracts",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "node --test --test-concurrency=1 test/",
+    "migrate": "node scripts/migrate.js"
   },
   "devDependencies": {
     "js-sha3": "0.9.1",
